@@ -1,22 +1,31 @@
 package envconfig
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
 	"strconv"
 )
 
+func handleError(s string, showError bool) (interface{}, error) {
+	if showError {
+		fmt.Fprintln(os.Stderr, s)
+	}
+
+	return nil, errors.New(s)
+}
+
 // LoadConfig reads a struct with fields and some specific tags and reaches into the runtime environment to fill in values
 // for the fields of that struct. The Env variable to field associations are defined using the `env` tag.
 // Additionally, you can set 2 tags to control the behavior of the configuration loader:
 // 1. `default`: Allows you to set a default value for the field in the event the environment variable is not set
 // 2. `required`: Causes a panic if no value is defined in the environment variable specified by `env` tag
-func LoadConfig(cfg interface{}) interface{} {
+func LoadConfig(cfg interface{}, showErrors bool) (interface{}, error) {
 	// Check that the cfg is a pointer to a struct
 	if reflect.ValueOf(cfg).Kind() != reflect.Ptr {
-		fmt.Fprintln(os.Stderr, "'cfg' must be a pointer to a concrete struct")
-		os.Exit(1)
+		s := "'cfg' parameter must be a pointer to a concrete struct"
+		return handleError(s, showErrors)
 	}
 
 	// Get struct Value and dereference it to get the underlying memory space
@@ -30,8 +39,8 @@ func LoadConfig(cfg interface{}) interface{} {
 		// Get env tag and ensure it was set
 		envTag, ok := typField.Tag.Lookup("env")
 		if !ok {
-			fmt.Fprintf(os.Stderr,"'env' tag not found for field %s", typField.Name)
-			os.Exit(127)
+			s := fmt.Sprintf("'env' tag not found for field %s", typField.Name)
+			return handleError(s, showErrors)
 		}
 
 		// Extract the value from the environment
@@ -42,8 +51,8 @@ func LoadConfig(cfg interface{}) interface{} {
 				raw = def
 			} else if _, ok := typField.Tag.Lookup("required"); ok {
 				// no default, so check if required. If yes, we panic out since we cannot set this value
-				fmt.Fprintf(os.Stderr,"Env variable %s is required by field %s\n", envTag, typField.Name)
-				os.Exit(127)
+				s := fmt.Sprintf("Env variable %s is required by field %s\n", envTag, typField.Name)
+				return handleError(s, showErrors)
 			}
 		}
 
@@ -54,8 +63,8 @@ func LoadConfig(cfg interface{}) interface{} {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			conv, err := strconv.Atoi(raw)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Unable to convert value found in environment variable %s ('%s') to int. Aborting.\n", envTag, raw)
-				os.Exit(127)
+				s := fmt.Sprintf("Unable to convert value found in environment variable %s ('%s') to int. Aborting.", envTag, raw)
+				return handleError(s, showErrors)
 			}
 
 			fld.SetInt(int64(conv))
@@ -64,7 +73,8 @@ func LoadConfig(cfg interface{}) interface{} {
 		case reflect.Float32, reflect.Float64:
 			conv, err := strconv.ParseFloat(raw, 64)
 			if err != nil {
-				fmt.Fprintf(os.Stderr,"Unable to convert value found in environment variable %s ('%s') to float. Aborting.\n", envTag, raw)
+				s := fmt.Sprintf("Unable to convert value found in environment variable %s ('%s') to float. Aborting.", envTag, raw)
+				return handleError(s, showErrors)
 			}
 
 			fld.SetFloat(conv)
@@ -73,5 +83,5 @@ func LoadConfig(cfg interface{}) interface{} {
 		}
 	}
 
-	return cfg
+	return cfg, nil
 }
