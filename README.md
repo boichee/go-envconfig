@@ -57,4 +57,32 @@ Note that the `LoadConfiguration` function:
   2. returns an `interface{}` type. This is because you have to define the struct that it processes. As such, the final step is always to make a type assertion, converting the `interface{}` to your `*Configuration` struct type—just as I have done above.
   
   
- 
+### Types:
+
+So far, the environment configuration loader can handle the following types:
+
+  - `int`
+  - `int8`
+  - `int16`
+  - `int32`
+  - `int64`
+  
+  - `float32`
+  - `float64`
+  
+  - `string`
+  - `bool`
+  
+
+> Note: For the `bool` type, `1` evaluates to true, and `0` to false.
+  
+
+### Struct Tags:
+
+The following struct tags are meaningful when using this package:
+
+| Name | Purpose | Allowed Values |
+| ---- | ------- | -------------- |
+| `env` | Defines the environment variable that contains the value for a field in the struct | `[A-z_0-9]` |
+| `required` | Marks a field as required. If the env variable cannot be found or is empty, an error will be returned. | N/A, if the tag is set, its value is irrelevant |
+| `default` | Allows a default value to be provided for a field | Any valid value for the field's type |
