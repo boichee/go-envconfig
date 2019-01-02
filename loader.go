@@ -79,7 +79,15 @@ func LoadConfig(cfg interface{}, showErrors bool) (interface{}, error) {
 
 			fld.SetFloat(conv)
 		case reflect.Bool:
-			fld.SetBool(raw != "")
+			switch raw {
+			case "0":
+				fld.SetBool(false)
+			case "1":
+				fld.SetBool(true)
+			default:
+				s := fmt.Sprintf("Unable to convert value found in environment variable %s ('%s') to bool (should be: 1 or 0). Aborting.", envTag, raw)
+				return handleError(s, showErrors)
+			}
 		}
 	}
 

@@ -16,7 +16,7 @@ package example
 type Configuration struct {
 	Foo int     `env:"FOO_VALUE"`
 	Bar string  `env:"BAR_VALUE" required:"true"`
-	Baz bool    `env:"BAZ_VALUE" default:"true"`
+	Baz bool    `env:"BAZ_VALUE" default:"1"`
 }
 ```
 
@@ -35,7 +35,7 @@ import (
 type Configuration struct {
 	Foo int     `env:"FOO_VALUE"`
 	Bar string  `env:"BAR_VALUE" required:"true"`
-	Baz bool    `env:"BAZ_VALUE" default:"true"`
+	Baz bool    `env:"BAZ_VALUE" default:"1"`
 }
 
 func load() *Configuration {
