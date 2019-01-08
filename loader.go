@@ -68,6 +68,14 @@ func LoadConfig(cfg interface{}, showErrors bool) (interface{}, error) {
 			}
 
 			fld.SetInt(int64(conv))
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			conv, err := strconv.ParseUint(raw, 10, 64)
+			if err != nil {
+				s := fmt.Sprintf("Unable to convert value found in environment variable %s ('%s') to uint. Aborting.", envTag, raw)
+				return handleError(s, showErrors)
+			}
+
+			fld.SetUint(uint64(conv))
 		case reflect.String:
 			fld.SetString(raw)
 		case reflect.Float32, reflect.Float64:
