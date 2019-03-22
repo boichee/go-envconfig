@@ -8,30 +8,37 @@ import (
 	"strconv"
 )
 
-func handleError(s string, showError bool) (interface{}, error) {
+//func handleError(s string, showError bool) (interface{}, error) {
+//	if showError {
+//		fmt.Fprintln(os.Stderr, s)
+//	}
+//
+//	return nil, errors.New(s)
+//}
+
+func handleError(s string, showError bool) error {
 	if showError {
 		fmt.Fprintln(os.Stderr, s)
 	}
 
-	return nil, errors.New(s)
+	return errors.New(s)
 }
 
-// LoadConfig reads a struct with fields and some specific tags and reaches into the runtime environment to fill in values
+// Process reads a struct with fields and some specific tags and reaches into the runtime environment to fill in values
 // for the fields of that struct. The Env variable to field associations are defined using the `env` tag.
 // Additionally, you can set 2 tags to control the behavior of the configuration loader:
 // 1. `default`: Allows you to set a default value for the field in the event the environment variable is not set
 // 2. `required`: Causes a panic if no value is defined in the environment variable specified by `env` tag
-func LoadConfig(cfg interface{}, showErrors bool) (interface{}, error) {
-	// Check that the cfg is a pointer to a struct
-	if reflect.ValueOf(cfg).Kind() != reflect.Ptr {
-		s := "'cfg' parameter must be a pointer to a concrete struct"
-		return handleError(s, showErrors)
+func Process(spec interface{}, showErrors bool) error {
+	// Check that spec is a pointer to struct
+	if reflect.ValueOf(spec).Kind() != reflect.Ptr {
+		return handleError("spec param must be a pointer to struct", showErrors)
 	}
 
-	// Get struct Value and dereference it to get the underlying memory space
-	el := reflect.ValueOf(cfg).Elem()
+	// Get value from struct and dereference it
+	el := reflect.ValueOf(spec).Elem()
 
-	// Go over each field in the config struct, load the relevant environment variable, and attempt to cast to the correct type
+	// For each field in spec struct, load relevant env var, and attempt to cast to the correct type
 	for i := 0; i < el.NumField(); i++ {
 		// Get the raw environment value based on env tag
 		typField := el.Type().Field(i)
@@ -99,5 +106,14 @@ func LoadConfig(cfg interface{}, showErrors bool) (interface{}, error) {
 		}
 	}
 
-	return cfg, nil
+	return nil
 }
+
+// LoadConfig present for backwards compatibility
+func LoadConfig(cfg interface{}, showErrors bool) (interface{}, error) {
+	err := Process(cfg, showErrors)
+	return cfg, err
+}
+
+
+
