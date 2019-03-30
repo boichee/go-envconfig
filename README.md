@@ -8,54 +8,35 @@ This simple package seeks to provide a solution.
 
 The `envconfig` package uses Golang's reflection tools to read a provided concrete struct; it uses the type and tag information associated with each field to load configuration from the runtime environment into that struct and return it.
 
-First, create a configuration struct with 1 field for each configuration value you need:
-
-```go
-package example
-
-type Configuration struct {
-	Foo int     `env:"FOO_VALUE"`
-	Bar string  `env:"BAR_VALUE" required:"true"`
-	Baz bool    `env:"BAZ_VALUE" default:"1"`
-}
-```
-
-Notice the tags. The `env` tag defines the environment variable that will contain the value for the configuration field. When set, `required` indicates to the loader that this field must have a value. The `default` tag allows you to provide a default value if one is not found in the environment.
-
-Next, you simply use the `LoadConfiguration` function found in the `envconfig` package:
 
 ```go
 package example
 
 import (
+	"github.com/boichee/go-envconfig"
 	"fmt"
-	"os"
 )
 
+// First, create a configuration struct with 1 field for each configuration value
 type Configuration struct {
 	Foo int     `env:"FOO_VALUE"`
 	Bar string  `env:"BAR_VALUE" required:"true"`
 	Baz bool    `env:"BAZ_VALUE" default:"1"`
 }
 
-func load() *Configuration {
-	result, err := envconfig.LoadConfiguration(&Configuration{}, false) // The 2nd param determines whether errors are printed to stderr
-	if err != nil {
-		fmt.Println(err) // We print the error ourselves since we set `showErrors` to false above
-		os.Exit(127)
+// Next, you use the loader to get the configuration into a concrete struct
+func main() {
+	var cfg Configuration
+	if err := envconfig.Process(&cfg, true); err != nil {
+		panic("Something went terribly wrong loading configuration!")
 	}
 	
-	return result.(*Configuration) // You must cast the interface{} back to your configuration type using a type assertion
+	// Now do stuff with configuration values!
+	fmt.Println("Foo is:", cfg.Foo)
 }
-
-var Cfg = load() // One possible way to use this. You could also use the init() function to get the configuration loaded
 ```
 
-Note that the `LoadConfiguration` function:
-
-  1. takes two arguments: The first must be a pointer to a `struct` with the format shown above. The second is a `bool` that tells the configuration loader whether or not to print any errors it discovers to `stderr`. Either way, the error will be returned to the caller so you can choose to print it in your calling code as I have done here.
-  2. returns an `interface{}` type. This is because you have to define the struct that it processes. As such, the final step is always to make a type assertion, converting the `interface{}` to your `*Configuration` struct type—just as I have done above.
-  
+Notice the struct tags. The `env` tag defines the environment variable that will contain the value for the configuration field. When set, `required` indicates to the loader that this field must have a value. The `default` tag allows you to provide a default value if one is not found in the environment.
   
 ### Types:
 
