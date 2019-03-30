@@ -37,6 +37,14 @@ func main() {
 ```
 
 Notice the struct tags. The `env` tag defines the environment variable that will contain the value for the configuration field. When set, `required` indicates to the loader that this field must have a value. The `default` tag allows you to provide a default value if one is not found in the environment.
+
+The signature for `Process` is:
+
+```golang
+envconfig.Process(cfg interface{}, showErrors bool)
+```
+
+If you set `showErrors` to true, configuration loading errors will be logged to `stderr` automatically (errors will be retuned by the function regardless of this setting).
   
 ### Types:
 
