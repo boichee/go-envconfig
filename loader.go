@@ -8,20 +8,70 @@ import (
 	"strconv"
 )
 
-//func handleError(s string, showError bool) (interface{}, error) {
-//	if showError {
-//		fmt.Fprintln(os.Stderr, s)
-//	}
-//
-//	return nil, errors.New(s)
-//}
-
 func handleError(s string, showError bool) error {
 	if showError {
 		fmt.Fprintln(os.Stderr, s)
 	}
 
 	return errors.New(s)
+}
+
+// ProcessFlags works mostly the same as Process, but expects values in the spec to be provided
+// as command line flags instead of as environment variables
+// Differences:
+// 1. Only (u)int64 is supported (compared to all int/uint sizes)
+// 2. Flag name is automatically determined by lowercasing the field name. This can be overriden by providing a "flag" tag
+// 3. A "usage" tag can be provided to add usage instructions
+// 4. showErrors support not available. Errors will never be printed to stdErr
+func ProcessFlags(spec interface{}) error {
+	// Check that spec is a pointer to struct (otherwise it won't be mutable)
+	if reflect.ValueOf(spec).Kind() != reflect.Ptr {
+		return handleError("spec param must be a pointer to struct", false)
+	}
+
+	// Get the concrete, specific instance pointed to by "spec"
+	concrete := reflect.ValueOf(spec).Elem()
+
+	// We iterate over the struct, and extract the type information from each field along with the tags
+	// supplied. We then grab an unsafe pointer to each field in the struct and cast it to the correct
+	// pointer type for that field. Then that "safe" pointer is used as the target for the call to flag
+	for i := 0; i < concrete.NumField(); i++ {
+		typ := concrete.Type().Field(i)
+		defaultVal, usageVal := typ.Tag.Get("default"), typ.Tag.Get("usage")
+		name := strings.ToLower(typ.Name)
+		if fName, ok := typ.Tag.Lookup("flag"); ok {
+			// explicit flag name was provided, so it overrides the default of the lowercased field name
+			name = fName
+		}
+
+		fld := concrete.Field(i)
+		uptr := unsafe.Pointer(fld.UnsafeAddr())
+		switch fld.Type().Kind() {
+		case reflect.Int64:
+			ptr := (*int64)(uptr)
+			def, _ := strconv.ParseInt(defaultVal, 10, 64) // No need to deal with error as the value on error is 0 which is what we want
+			flag.Int64Var(ptr, name, def, usageVal)
+		case reflect.Uint64:
+			ptr := (*uint64)(uptr)
+			def, _ := strconv.ParseUint(defaultVal, 10, 64)
+			flag.Uint64Var(ptr, name, def, usageVal)
+		case reflect.Float32, reflect.Float64:
+			ptr := (*float64)(uptr)
+			def, _ := strconv.ParseFloat(defaultVal, 64)
+			flag.Float64Var(ptr, name, def, usageVal)
+		case reflect.String:
+			ptr := (*string)(uptr)
+			flag.StringVar(ptr, name, defaultVal, usageVal)
+		case reflect.Bool:
+			ptr := (*bool)(uptr)
+			flag.BoolVar(ptr, name, false, usageVal) // We set the default to false so that this is only true when set
+		default:
+			return handleError(fmt.Sprintf("The type '%s' of the field '%s' is not supported", fld.Type().Kind(), typ.Name), false)
+		}
+	}
+
+	flag.Parse()
+	return nil
 }
 
 // Process reads a struct with fields and some specific tags and reaches into the runtime environment to fill in values
