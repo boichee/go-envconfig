@@ -61,9 +61,30 @@ So far, the environment configuration loader can handle the following types:
   
   - `string`
   - `bool`
-  
 
 > Note: For the `bool` type, `1` evaluates to true, and `0` to false.
+  
+The flag configuration loader handles the following types:
+  - `int64`
+  - `uint64`
+  - `float64`
+  - `string`
+  - `bool`
+  
+  
+### Flag Processing:
+
+You can also process flags by providing a struct as a spec. A few key differences:
+
+1. The name of the flag will default to the **lowercased** name of the struct field unless overriden using the `flag` tag
+2. Flags are never required. They will default to the zero value for their type if not set
+3. You can provide a `usage` tag that will be used to add usage instructions for the flag
+
+To process a struct as flags, use the `ProcessFlags` function instead.
+
+```go
+envconfig.ProcessFlags(cfg interface{}) error
+```
   
 
 ### Struct Tags:
@@ -73,5 +94,6 @@ The following struct tags are meaningful when using this package:
 | Name | Purpose | Allowed Values |
 | ---- | ------- | -------------- |
 | `env` | Defines the environment variable that contains the value for a field in the struct | `[A-z_0-9]` |
+| `flag` | Sets the flag name | `[A-z0-9_-]` |
 | `required` | Marks a field as required. If the env variable cannot be found or is empty, an error will be returned. | N/A, if the tag is set, its value is irrelevant |
 | `default` | Allows a default value to be provided for a field | Any valid value for the field's type |
