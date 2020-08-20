@@ -2,10 +2,13 @@ package envconfig
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
+	"unsafe"
 )
 
 func handleError(s string, showError bool) error {
