@@ -77,6 +77,10 @@ func ProcessFlags(spec interface{}) error {
 	return nil
 }
 
+func buildErrString(varname, raw, typ string) string {
+	return fmt.Sprintf("Unable to convert value found in environment variable %s ('%s') to %s. Aborting.", varname, raw, typ)
+}
+
 // Process reads a struct with fields and some specific tags and reaches into the runtime environment to fill in values
 // for the fields of that struct. The Env variable to field associations are defined using the `env` tag.
 // Additionally, you can set 2 tags to control the behavior of the configuration loader:
@@ -99,8 +103,8 @@ func Process(spec interface{}, showErrors bool) error {
 		// Get env tag and ensure it was set
 		envTag, ok := typField.Tag.Lookup("env")
 		if !ok {
-			s := fmt.Sprintf("'env' tag not found for field %s", typField.Name)
-			return handleError(s, showErrors)
+			// If env tag is not found on field, than the field is not meant to be pulled from environment
+			continue
 		}
 
 		// Extract the value from the environment
@@ -111,7 +115,14 @@ func Process(spec interface{}, showErrors bool) error {
 				raw = def
 			} else if _, ok := typField.Tag.Lookup("required"); ok {
 				// no default, so check if required. If yes, we panic out since we cannot set this value
-				s := fmt.Sprintf("Env variable %s is required by field %s\n", envTag, typField.Name)
+				s := fmt.Sprintf("Env variable %s is required by field %s", envTag, typField.Name)
+
+				// check for usage
+				if usage, ok := typField.Tag.Lookup("usage"); ok {
+					s = fmt.Sprintf("%s\nUsage: %s", s, usage)
+				}
+
+				s += "\n" // Always add newline at the end
 				return handleError(s, showErrors)
 			}
 		}
@@ -119,11 +130,23 @@ func Process(spec interface{}, showErrors bool) error {
 		// Extract the concrete field for this iteration
 		fld := el.Field(i)
 
+		// See if the custom interface was used before we start using reflection instead
+		val, ok := fld.Interface().(Value)
+		if ok {
+			err := val.Set(raw)
+			if err == nil {
+				continue
+			}
+
+			return handleError(fmt.Sprintf("failed to convert raw value (%s) with custom converter: %v", raw, err), showErrors)
+		}
+
+		// Otherwise, use reflection to convert and set
 		switch fld.Type().Kind() {
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			conv, err := strconv.Atoi(raw)
+			conv, err := strconv.ParseInt(raw, 10, 64)
 			if err != nil {
-				s := fmt.Sprintf("Unable to convert value found in environment variable %s ('%s') to int. Aborting.", envTag, raw)
+				s := buildErrString(envTag, raw, "int")
 				return handleError(s, showErrors)
 			}
 
@@ -131,7 +154,7 @@ func Process(spec interface{}, showErrors bool) error {
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			conv, err := strconv.ParseUint(raw, 10, 64)
 			if err != nil {
-				s := fmt.Sprintf("Unable to convert value found in environment variable %s ('%s') to uint. Aborting.", envTag, raw)
+				s := buildErrString(envTag, raw, "uint")
 				return handleError(s, showErrors)
 			}
 
@@ -141,21 +164,19 @@ func Process(spec interface{}, showErrors bool) error {
 		case reflect.Float32, reflect.Float64:
 			conv, err := strconv.ParseFloat(raw, 64)
 			if err != nil {
-				s := fmt.Sprintf("Unable to convert value found in environment variable %s ('%s') to float. Aborting.", envTag, raw)
+				s := buildErrString(envTag, raw, "float")
 				return handleError(s, showErrors)
 			}
 
 			fld.SetFloat(conv)
 		case reflect.Bool:
-			switch raw {
-			case "0":
-				fld.SetBool(false)
-			case "1":
-				fld.SetBool(true)
-			default:
-				s := fmt.Sprintf("Unable to convert value found in environment variable %s ('%s') to bool (should be: 1 or 0). Aborting.", envTag, raw)
+			conv, err := strconv.ParseBool(raw)
+			if err != nil {
+				s := buildErrString(envTag, raw, "bool")
 				return handleError(s, showErrors)
 			}
+
+			fld.SetBool(conv)
 		}
 	}
 
@@ -167,6 +188,3 @@ func LoadConfig(cfg interface{}, showErrors bool) (interface{}, error) {
 	err := Process(cfg, showErrors)
 	return cfg, err
 }
-
-
-
